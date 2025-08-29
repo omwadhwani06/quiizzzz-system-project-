@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f4f4f4;
+        }
+
+        #quiz-container {
+            margin: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #ccc;
+            background: linear-gradient(135deg, #ff00cc, #333399);
+            width: 100%;
+            max-width: 500px;
+            color: white;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        #question {
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.15);
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        label:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        input[type="radio"] {
+            margin-right: 10px;
+        }
+
+        #timer {
+            font-weight: bold;
+            color: yellow;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            margin-top: 15px;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #ffcc00;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s ease;
+        }
+
+        button:hover {
+            background: #ffaa00;
+        }
+
+        /* ✅ Responsiveness */
+        @media (max-width: 600px) {
+            #quiz-container {
+                padding: 15px;
+                margin: 10px;
+                font-size: 14px;
+            }
+
+            h2 {
+                font-size: 20px;
+            }
+
+            #question {
+                font-size: 16px;
+            }
+
+            button {
+                font-size: 14px;
+                padding: 10px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            #quiz-container {
+                padding: 12px;
+            }
+
+            h2 {
+                font-size: 18px;
+            }
+
+            #question {
+                font-size: 14px;
+            }
+
+            button {
+                font-size: 13px;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="quiz-container">
+    <h2>GK Quiz</h2>
+    <h3 id="question"></h3>
+    <div id="options"></div>
+    <p>Time left: <span id="timer">10</span> seconds</p>
+    <button id="nextBtn">Next</button>
+</div>
+
+<script>
+    let questions = [];
+    let currentQuestion = 0;
+    let timer;
+    let timeLeft = 10;
+    let score = 0;
+    let username = "";
+
+    fetch("fetchquestions.php")
+        .then(res => res.json())
+        .then(data => {
+            questions = data;
+            username = prompt("Enter your name:") || "Guest";
+            showQuestion();
+        })
+        .catch(err => console.error(err));
+
+    function showQuestion() {
+        if (currentQuestion >= questions.length) {
+            clearInterval(timer);
+            saveScoreToDB();
+            return;
+        }
+
+        let q = questions[currentQuestion];
+        document.getElementById("question").innerText =
+            (currentQuestion + 1) + ". " + q.question;
+
+        let optionsHTML = "";
+        q.options.forEach((opt, i) => {
+            optionsHTML += `
+                <label>
+                    <input type="radio" name="option" value="${i}"> ${opt}
+                </label>
+            `;
+        });
+        document.getElementById("options").innerHTML = optionsHTML;
+
+        timeLeft = 10;
+        document.getElementById("timer").innerText = timeLeft;
+        clearInterval(timer);
+        timer = setInterval(countdown, 1000);
+    }
+
+    function countdown() {
+        timeLeft--;
+        document.getElementById("timer").innerText = timeLeft;
+        if (timeLeft <= 0) {
+            nextQuestion();
+        }
+    }
+
+    function nextQuestion() {
+        clearInterval(timer);
+        let selected = document.querySelector('input[name="option"]:checked');
+        if (selected && parseInt(selected.value) === questions[currentQuestion].answer) {
+            score++;
+        }
+        currentQuestion++;
+        showQuestion();
+    }
+
+    function saveScoreToDB() {
+        fetch("savescore.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: `username=${encodeURIComponent(username)}&score=${score}`
+        })
+        .then(res => res.text())
+        .then(data => {
+            document.getElementById("quiz-container").innerHTML = `
+                <h2>Quiz Completed!</h2>
+                <p>${username}, your score is: ${score}</p>
+                <p>${data}</p>
+            `;
+        })
+        .catch(err => console.error(err));
+    }
+
+    document.getElementById("nextBtn").addEventListener("click", nextQuestion);
+</script>
+</body>
+</html>
